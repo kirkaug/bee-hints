@@ -3,6 +3,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bee Hints</title>
+<meta name="theme-color" content="#f7da21">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root { color-scheme: light dark; --gold: #f7da21; --ok: #1a9a3a; --warn: #e0a800; --muted: #8888; }
   * { box-sizing: border-box }
@@ -208,4 +211,7 @@ function show(date) {
 }
 show(ingest());
 window.addEventListener('hashchange', function () { var d = ingest(); if (d) show(d); });
+
+/* Installable + works offline. Registration failing (e.g. file://) just means no install. */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 </script>
