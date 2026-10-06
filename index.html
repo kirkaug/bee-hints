@@ -65,21 +65,34 @@ function rank(pts, total) {
   return { name: TIERS[cur][0], next: next ? next[0] : null, toNext: next ? Math.floor(next[1] / 100 * total) - pts : 0 };
 }
 
-/* Merge an incoming handoff (URL fragment) into local storage, unioning found words. */
-function ingest() {
-  var p = new URLSearchParams(location.hash.slice(1));
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.get('d') || '') || !p.get('a')) return null;
-  var d = p.get('d'), old = JSON.parse(localStorage.getItem(KEY + d) || 'null');
-  var rec = {
-    d: d, id: p.get('id') || '',
-    c: (p.get('c') || '').toLowerCase().slice(0, 1),
-    o: (p.get('o') || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 6),
-    a: words(p.get('a')), p: words(p.get('p')),
-    f: uniq(words(p.get('f')).concat(old ? old.f : [])), t: Date.now()
-  };
-  localStorage.setItem(KEY + d, JSON.stringify(rec));
-  history.replaceState(null, '', location.pathname);
+/* Merge one puzzle into local storage, unioning found words with what's already saved. */
+function put(d, id, c, o, a, pg, f) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !a.length) return null;
+  var old = JSON.parse(localStorage.getItem(KEY + d) || 'null');
+  localStorage.setItem(KEY + d, JSON.stringify({
+    d: d, id: id, c: c.toLowerCase().slice(0, 1),
+    o: o.toLowerCase().replace(/[^a-z]/g, '').slice(0, 6),
+    a: a, p: pg, f: uniq(f.concat(old ? old.f : [])), t: Date.now()
+  }));
   return d;
+}
+
+/* Two handoff shapes: `z` carries several puzzles ("date|id|center|outer|answers|pangrams|found"
+   joined by "~"); the older single-puzzle form uses d/id/c/o/a/p/f. Returns the newest date ingested. */
+function ingest() {
+  var p = new URLSearchParams(location.hash.slice(1)), dates = [];
+  if (p.get('z')) {
+    p.get('z').split('~').forEach(function (s) {
+      var f = s.split('|');
+      if (f.length >= 7) dates.push(put(f[0], f[1], f[2], f[3], words(f[4]), words(f[5]), words(f[6])));
+    });
+  } else {
+    dates.push(put(p.get('d') || '', p.get('id') || '', p.get('c') || '', p.get('o') || '',
+                   words(p.get('a')), words(p.get('p')), words(p.get('f'))));
+  }
+  dates = dates.filter(Boolean).sort();
+  if (dates.length) history.replaceState(null, '', location.pathname);
+  return dates.length ? dates[dates.length - 1] : null;
 }
 
 function savedDates() {

@@ -27,16 +27,21 @@ If you change this, re-install the bookmark.</p>
 /* The bookmarklet is kept deliberately tiny and strictly one line: mobile browsers truncate long
    or multi-line text pasted into a bookmark's URL field. It runs in the NYT page, so its same-origin
    fetch carries the user's cookies, then opens the results page with the data in the URL fragment. */
+/* Collects today's puzzle plus the past ones NYT embeds in the page (about ten days), fetches your
+   saved words for each, and hands them all to the results page as "date|id|center|outer|answers|
+   pangrams|found" records joined by "~". A failed lookup for a past day just means no words for it;
+   a failed lookup for today (e.g. not signed in) is reported. */
 var TEMPLATE =
-  "javascript:(function(H){var t=window.gameData&&window.gameData.today;" +
-  "if(!t){alert('Open nytimes.com/puzzles/spelling-bee first');return}" +
-  "fetch('/svc/games/state/spelling_bee/latest?puzzle_id='+t.id,{credentials:'include'})" +
-  ".then(function(r){if(!r.ok)throw Error('HTTP '+r.status);return r.json()})" +
-  ".then(function(j){var u=H+'#'+new URLSearchParams({d:t.printDate,id:String(t.id)," +
-  "c:t.centerLetter.toLowerCase(),o:t.outerLetters.join('').toLowerCase()," +
-  "a:t.answers.join(',').toLowerCase(),p:t.pangrams.join(',').toLowerCase()," +
-  "f:((j.game_data&&j.game_data.answers)||[]).join(',').toLowerCase()});" +
-  "if(!window.open(u,'bee-hints'))location.href=u})" +
+  "javascript:(function(H){var g=window.gameData,s={},L=[];" +
+  "if(!g||!g.today){alert('Open nytimes.com/puzzles/spelling-bee first');return}" +
+  "[g.today,g.yesterday].concat([].concat((g.pastPuzzles||{}).thisWeek||[],(g.pastPuzzles||{}).lastWeek||[]))" +
+  ".forEach(function(x){if(x&&!s[x.printDate]){s[x.printDate]=1;L.push(x)}});" +
+  "Promise.all(L.map(function(x,i){return fetch('/svc/games/state/spelling_bee/latest?puzzle_id='+x.id,{credentials:'include'})" +
+  ".then(function(r){if(!r.ok&&!i)throw Error('HTTP '+r.status);return r.ok?r.json():{}})" +
+  ".catch(function(e){if(!i)throw e;return{}})" +
+  ".then(function(j){return[x.printDate,x.id,x.centerLetter,x.outerLetters.join(''),x.answers.join(',')," +
+  "x.pangrams.join(','),((j.game_data&&j.game_data.answers)||[]).join(',')].join('|').toLowerCase()})}))" +
+  ".then(function(a){var u=H+'#z='+encodeURIComponent(a.join('~'));if(!window.open(u,'bee-hints'))location.href=u})" +
   ".catch(function(e){alert('Bee Hints failed: '+e.message)})})(" ;
 
 var link = document.getElementById('link'), src = document.getElementById('src'), target = document.getElementById('target');
